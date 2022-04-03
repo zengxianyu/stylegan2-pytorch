@@ -45,6 +45,9 @@ For example, if you cloned repositories in ~/stylegan2 and downloaded stylegan2-
 
 This will create converted stylegan2-ffhq-config-f.pt file.
 
+> python convert_weight1.py --repo ~/stylegan2 stylegan2-ffhq-config-f.pkl
+> python convert_weight2.py stylegan2-ffhq-config-f.pkl
+
 ### Generate samples
 
 > python generate.py --sample N_FACES --pics N_PICS --ckpt PATH_CHECKPOINT
