@@ -41,12 +41,12 @@ You need to clone official repositories, (https://github.com/NVlabs/stylegan2) a
 
 For example, if you cloned repositories in ~/stylegan2 and downloaded stylegan2-ffhq-config-f.pkl, You can convert it like this:
 
-> python convert_weight.py --repo ~/stylegan2 stylegan2-ffhq-config-f.pkl
+> python convert_weight1.py --repo ~/stylegan2 stylegan2-ffhq-config-f.pkl
+
+> python convert_weight2.py stylegan2-ffhq-config-f.pkl
+
 
 This will create converted stylegan2-ffhq-config-f.pt file.
-
-> python convert_weight1.py --repo ~/stylegan2 stylegan2-ffhq-config-f.pkl
-> python convert_weight2.py stylegan2-ffhq-config-f.pkl
 
 ### Generate samples
 
