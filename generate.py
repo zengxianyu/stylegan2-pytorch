@@ -1,4 +1,6 @@
 import argparse
+import pdb
+import os
 
 import torch
 from torchvision import utils
@@ -7,9 +9,12 @@ from tqdm import tqdm
 
 
 def generate(args, g_ema, device, mean_latent):
+    if not os.path.exists(args.output_dir):
+        os.mkdir(args.output_dir)
 
     with torch.no_grad():
         g_ema.eval()
+        j = 0
         for i in tqdm(range(args.pics)):
             sample_z = torch.randn(args.sample, args.latent, device=device)
 
@@ -17,19 +22,27 @@ def generate(args, g_ema, device, mean_latent):
                 [sample_z], truncation=args.truncation, truncation_latent=mean_latent
             )
 
-            utils.save_image(
-                sample,
-                f"sample/{str(i).zfill(6)}.png",
-                nrow=1,
-                normalize=True,
-                range=(-1, 1),
-            )
+            for _sample in sample:
+                utils.save_image(
+                    _sample,
+                    f"{args.output_dir}/{str(j).zfill(6)}.png",
+                    nrow=1,
+                    normalize=True,
+                    range=(-1, 1),
+                )
+                j+=1
 
 
 if __name__ == "__main__":
     device = "cuda"
 
     parser = argparse.ArgumentParser(description="Generate samples from the generator")
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="samples",
+        help="number of samples to be generated for each image",
+    )
 
     parser.add_argument(
         "--size", type=int, default=1024, help="output image size of the generator"
@@ -73,7 +86,11 @@ if __name__ == "__main__":
     ).to(device)
     checkpoint = torch.load(args.ckpt)
 
-    g_ema.load_state_dict(checkpoint["g_ema"])
+    m,u = g_ema.load_state_dict(checkpoint["g_ema"], strict=False)
+    print("missing")
+    print(m)
+    print("unused")
+    print(u)
 
     if args.truncation < 1:
         with torch.no_grad():

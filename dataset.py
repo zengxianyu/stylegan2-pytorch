@@ -1,6 +1,10 @@
 from io import BytesIO
+import pdb
 
-import lmdb
+try:
+    import lmdb
+except:
+    pass
 from PIL import Image
 from torch.utils.data import Dataset
 
@@ -35,6 +39,26 @@ class MultiResolutionDataset(Dataset):
 
         buffer = BytesIO(img_bytes)
         img = Image.open(buffer)
+        img = self.transform(img)
+
+        return img
+
+class MultiResolutionImageDataset(Dataset):
+    def __init__(self, path, path_list, transform, resolution=256, postfix="png"):
+        with open(path_list, "r") as f:
+            names = f.readlines()
+        names = [n.strip("\n") for n in names]
+        self.filelist = [f"{path}/{name}.{postfix}" for name in names]
+
+        self.resolution = resolution
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.filelist)
+
+    def __getitem__(self, index):
+        filename = self.filelist[index]
+        img = Image.open(filename).resize((self.resolution, self.resolution))
         img = self.transform(img)
 
         return img
