@@ -1,4 +1,5 @@
 import argparse
+import pdb
 import math
 import random
 import os
@@ -123,7 +124,7 @@ def set_grad_none(model, targets):
             p.grad = None
 
 
-def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, device):
+def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, device, recnet=None):
     loader = sample_data(loader)
 
     pbar = range(args.iter)
@@ -168,6 +169,13 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, devic
 
         real_img = next(loader)
         real_img = real_img.to(device)
+        if recnet is not None:
+            with torch.no_grad():
+                dumt = torch.Tensor([recnet.dumt]\
+                        *real_img.size(0)).to(device)
+                real_img = recnet(real_img,dumt)
+            real_img = real_img.detach()
+            print("Using recnet")
 
         requires_grad(generator, False)
         requires_grad(discriminator, True)
@@ -337,6 +345,12 @@ if __name__ == "__main__":
     parser.add_argument("--path", type=str, help="path to the lmdb dataset")
     parser.add_argument("--path_list", type=str, help="path to the lmdb dataset")
     parser.add_argument('--arch', type=str, default='stylegan2', help='model architectures (stylegan2 | swagan)')
+    parser.add_argument(
+        "--use_recnet", action="store_true", help="use recnet"
+    )
+    parser.add_argument(
+        "--path_recnet", required=False
+    )
     parser.add_argument(
         "--iter", type=int, default=800000, help="total training iterations"
     )
@@ -527,7 +541,38 @@ if __name__ == "__main__":
         num_workers=8
     )
 
+    if args.use_recnet:
+        import sys
+        sys.path.append("../guided-diffusion")
+        from guided_diffusion.unet import UNetModel
+        print("creating recnet model...")
+        recnet = UNetModel(
+            image_size=args.size,
+            in_channels=3,
+            model_channels=64,
+            out_channels=3,
+            num_res_blocks=2,
+            attention_resolutions=(8, 16, 32),
+            dropout=0.1,
+            channel_mult=(1,1,2,2,4,4),
+            num_classes=None,
+            use_checkpoint=False,
+            use_fp16=False,
+            num_heads=4,
+            num_head_channels=64,
+            num_heads_upsample=-1,
+            use_scale_shift_norm=True,
+            resblock_updown=True,
+            use_new_attention_order=True,
+        )
+        recnet.load_state_dict(torch.load(args.path_recnet))
+        recnet.to(device)
+        recnet.eval()
+        recnet.dumt = 100
+    else:
+        recnet = None
+
     if get_rank() == 0 and wandb is not None and args.wandb:
         wandb.init(project="stylegan 2")
 
-    train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, device)
+    train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, device, recnet=recnet)
