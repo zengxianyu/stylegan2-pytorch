@@ -174,6 +174,7 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, devic
                 dumt = torch.Tensor([recnet.dumt]\
                         *real_img.size(0)).to(device)
                 real_img = recnet(real_img,dumt)
+                real_img = torch.tanh(real_img)
             real_img = real_img.detach()
             print("Using recnet")
 
