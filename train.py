@@ -1,4 +1,5 @@
 import argparse
+import torchvision
 import pdb
 import math
 import random
@@ -124,7 +125,7 @@ def set_grad_none(model, targets):
             p.grad = None
 
 
-def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, device, recnet=None):
+def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, device, recnet=None, clsnet=None):
     loader = sample_data(loader)
 
     pbar = range(args.iter)
@@ -240,6 +241,14 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, devic
         fake_pred = discriminator(fake_img)
         g_loss = g_nonsaturating_loss(fake_pred)
 
+        if clsnet is not None:
+            print("using cls net")
+            cls_pred = clsnet(fake_img)
+            cls_label = torch.ones_like(cls_pred)
+            cls_loss = F.binary_cross_entropy_with_logits(cls_pred, cls_label)
+            g_loss = g_loss + cls_loss*0.05
+            print(f" cls loss: {cls_loss.item()}")
+
         loss_dict["g"] = g_loss
 
         generator.zero_grad()
@@ -346,6 +355,12 @@ if __name__ == "__main__":
     parser.add_argument("--path", type=str, help="path to the lmdb dataset")
     parser.add_argument("--path_list", type=str, help="path to the lmdb dataset")
     parser.add_argument('--arch', type=str, default='stylegan2', help='model architectures (stylegan2 | swagan)')
+    parser.add_argument(
+        "--use_clsnet", action="store_true", help="use recnet"
+    )
+    parser.add_argument(
+        "--path_clsnet", required=False
+    )
     parser.add_argument(
         "--use_recnet", action="store_true", help="use recnet"
     )
@@ -572,8 +587,18 @@ if __name__ == "__main__":
         recnet.dumt = 100
     else:
         recnet = None
+    if args.use_clsnet:
+        print("create classifier")
+        net_cls = torchvision.models.resnet34(pretrained=False)
+        net_cls.fc = torch.nn.Linear(net_cls.fc.in_features,1)
+        torch.nn.init.kaiming_normal_(net_cls.fc.weight)
+        net_cls.load_state_dict(torch.load(args.path_clsnet))
+        net_cls.to(device)
+        net_cls.eval()
+    else:
+        net_cls = None
 
     if get_rank() == 0 and wandb is not None and args.wandb:
         wandb.init(project="stylegan 2")
 
-    train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, device, recnet=recnet)
+    train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, device, recnet=recnet, clsnet=net_cls)
